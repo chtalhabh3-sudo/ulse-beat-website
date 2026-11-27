@@ -82,16 +82,30 @@ export function AdminDashboard({
     setBranding(settings);
   }, [settings]);
 
+  const [backendUnavailable, setBackendUnavailable] = useState(false);
+
   const fetchAdminStatus = async () => {
-    const res = await fetch('/api/admin/status', {
-      headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {},
-    });
-    if (res.ok) {
-      const data = (await res.json()) as AdminStatus;
-      setStatus(data);
-      if (adminToken && !data.authenticated) {
-        onSetAdminToken(null);
+    try {
+      const res = await fetch('/api/admin/status', {
+        headers: {
+          Accept: 'application/json',
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+        },
+      });
+      if (!res.headers.get('content-type')?.includes('application/json')) {
+        setBackendUnavailable(true);
+        return;
       }
+      if (res.ok) {
+        setBackendUnavailable(false);
+        const data = (await res.json()) as AdminStatus;
+        setStatus(data);
+        if (adminToken && !data.authenticated) {
+          onSetAdminToken(null);
+        }
+      }
+    } catch {
+      setBackendUnavailable(true);
     }
   };
 
@@ -100,11 +114,11 @@ export function AdminDashboard({
       fetch('/api/admin/songs', { headers: { Authorization: `Bearer ${token}` } }),
       fetch('/api/admin/messages', { headers: { Authorization: `Bearer ${token}` } }),
     ]);
-    if (songsRes.ok) {
+    if (songsRes.ok && songsRes.headers.get('content-type')?.includes('application/json')) {
       const d = await songsRes.json();
       setAdminSongs(d.songs || []);
     }
-    if (msgsRes.ok) {
+    if (msgsRes.ok && msgsRes.headers.get('content-type')?.includes('application/json')) {
       const d = await msgsRes.json();
       setMessages(d.messages || []);
     }
@@ -125,15 +139,24 @@ export function AdminDashboard({
       const endpoint = status?.configured ? '/api/admin/login' : '/api/admin/bootstrap';
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ password: passwordInput }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { token?: string; error?: string } | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+      if (!data) {
+        throw new Error('Admin backend API is not active on this static deployment.');
+      }
       if (!res.ok) {
         throw new Error(data.error || 'Authentication failed.');
       }
       setPasswordInput('');
-      onSetAdminToken(data.token);
+      onSetAdminToken(data.token ?? null);
     } catch (err: unknown) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed.');
     } finally {
@@ -291,6 +314,12 @@ export function AdminDashboard({
               </p>
             </div>
           </div>
+
+          {backendUnavailable && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 p-3.5 text-xs text-amber-200 leading-relaxed">
+              This deployment is currently serving static files only (such as Cloudflare Pages without a connected backend). Admin uploads, SQLite persistence, and catalog editing require running the Node.js Express server or connecting Cloudflare Pages Functions with D1 and R2 storage.
+            </div>
+          )}
 
           {authError && (
             <div className="rounded-lg border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300">

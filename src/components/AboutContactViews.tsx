@@ -112,10 +112,21 @@ export function ContactView({ settings }: ContactViewProps) {
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ name, email, subject, message }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { success?: boolean; error?: string } | null = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+      if (!data) {
+        throw new Error(
+          `Message submission requires the backend API server. You can reach us directly at ${settings.contactEmail}.`
+        );
+      }
       if (!res.ok) {
         throw new Error(data.error || 'Could not send message.');
       }

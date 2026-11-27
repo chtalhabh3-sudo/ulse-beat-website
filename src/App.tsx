@@ -45,17 +45,33 @@ export default function App() {
   const loadPublicData = useCallback(async () => {
     try {
       const [siteRes, songsRes] = await Promise.all([
-        fetch('/api/site'),
-        fetch('/api/songs'),
+        fetch('/api/site', { headers: { Accept: 'application/json' } }),
+        fetch('/api/songs', { headers: { Accept: 'application/json' } }),
       ]);
-      if (siteRes.ok) {
+
+      const siteIsJson =
+        siteRes.ok && siteRes.headers.get('content-type')?.includes('application/json');
+      const songsIsJson =
+        songsRes.ok && songsRes.headers.get('content-type')?.includes('application/json');
+
+      if (siteIsJson && songsIsJson) {
         const siteData = await siteRes.json();
+        const songsData = await songsRes.json();
         if (siteData.settings) setSettings(siteData.settings);
         if (siteData.stats) setStats(siteData.stats);
-      }
-      if (songsRes.ok) {
-        const songsData = await songsRes.json();
         setSongs(songsData.songs || []);
+        return;
+      }
+
+      // Static hosting fallback (e.g. Cloudflare Pages without a Node backend attached)
+      const snapRes = await fetch('/catalog-snapshot.json', {
+        headers: { Accept: 'application/json' },
+      });
+      if (snapRes.ok && snapRes.headers.get('content-type')?.includes('application/json')) {
+        const snap = await snapRes.json();
+        if (snap.settings) setSettings(snap.settings);
+        if (snap.stats) setStats(snap.stats);
+        if (Array.isArray(snap.songs)) setSongs(snap.songs);
       }
     } finally {
       setLoading(false);
@@ -80,9 +96,12 @@ export default function App() {
           return;
         }
         const res = await fetch(`/api/songs/${encodeURIComponent(songId)}`, {
-          headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {},
+          headers: {
+            Accept: 'application/json',
+            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+          },
         });
-        if (res.ok) {
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
           const data = await res.json();
           if (data.song) {
             setSelectedSong(data.song);
