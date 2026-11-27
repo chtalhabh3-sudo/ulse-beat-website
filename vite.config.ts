@@ -3,9 +3,11 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import {createRequire} from 'module';
 import path from 'path';
+import {fileURLToPath} from 'url';
 import {defineConfig} from 'vite';
 
 const require = createRequire(import.meta.url);
+const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 function writeStaticCatalogSnapshot(distDir: string): void {
   const fallbackSnapshot = {
@@ -29,7 +31,7 @@ function writeStaticCatalogSnapshot(distDir: string): void {
   };
 
   try {
-    const dbPath = path.resolve(__dirname, 'data', 'pulsebeat.db');
+    const dbPath = path.resolve(ROOT_DIR, 'data', 'pulsebeat.db');
     if (fs.existsSync(dbPath)) {
       const Database = require('better-sqlite3');
       const db = new Database(dbPath, {readonly: true});
@@ -117,13 +119,13 @@ export default defineConfig(() => {
           if (error) {
             return;
           }
-          const distDir = path.resolve(__dirname, 'dist');
-          const srcAssets = path.resolve(__dirname, 'src/assets');
+          const distDir = path.resolve(ROOT_DIR, 'dist');
+          const srcAssets = path.resolve(ROOT_DIR, 'src/assets');
           const distAssets = path.resolve(distDir, 'src/assets');
           if (fs.existsSync(distDir) && fs.existsSync(srcAssets)) {
             fs.cpSync(srcAssets, distAssets, {recursive: true, force: true});
           }
-          const uploadsDir = path.resolve(__dirname, 'uploads');
+          const uploadsDir = path.resolve(ROOT_DIR, 'uploads');
           const distUploads = path.resolve(distDir, 'uploads');
           if (fs.existsSync(distDir) && fs.existsSync(uploadsDir)) {
             fs.cpSync(uploadsDir, distUploads, {recursive: true, force: true});
@@ -136,7 +138,7 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(ROOT_DIR, '.'),
       },
     },
     server: {
