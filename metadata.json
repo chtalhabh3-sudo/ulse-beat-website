@@ -1,0 +1,6 @@
+{
+  "name": "PULSE BEAT",
+  "description": "Official PULSE BEAT music showcase, curated music videos, authorized audio downloads, and interactive song catalog.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
